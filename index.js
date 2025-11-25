@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const { Octokit } = require('@octokit/rest');
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -717,13 +718,26 @@ app.get('/api/posts/:postId/comments', async (req, res) => {
   }
 });
 
-// Serve static files in production
-if (process.env.NODE_ENV === 'production') {
+// Serve static files: prefer production build, fall back to public (avoid ENOENT)
+const buildIndex = path.join(__dirname, 'build', 'index.html');
+const publicIndex = path.join(__dirname, 'public', 'index.html');
+
+if (fs.existsSync(buildIndex)) {
   app.use(express.static(path.join(__dirname, 'build')));
-  
+  // Fallback to build/index.html for client-side routing
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'build', 'index.html'));
+    res.sendFile(buildIndex);
   });
+} else if (fs.existsSync(publicIndex)) {
+  app.use(express.static(path.join(__dirname, 'public')));
+  // Fallback to public/index.html for client-side routing
+  app.get('*', (req, res) => {
+    res.sendFile(publicIndex);
+  });
+} else {
+  console.warn('Warning: no build/ or public/ index.html found. Static files will not be served.');
+  console.warn('For development run: npm run client');
+  console.warn('To create a production build run: npm run build');
 }
 
 app.listen(PORT, () => {

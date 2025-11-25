@@ -1,0 +1,15 @@
+{
+  "short_name": "Uni-post",
+  "name": "Uni-post by Sirco",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#ff4500",
+  "background_color": "#dae0e6"
+}
