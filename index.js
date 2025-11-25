@@ -9,6 +9,12 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs');
 
 const app = express();
+
+// Trust reverse proxy headers so express-rate-limit can use X-Forwarded-For
+// Set to `true` (trust all proxies) or change to a specific value if needed.
+app.set('trust proxy', true);
+console.log('Express trust proxy:', app.get('trust proxy'));
+
 const PORT = process.env.PORT || 5000;
 
 // GitHub configuration from .env
