@@ -191,6 +191,21 @@ app.get('/api/index', async (req, res) => {
   }
 });
 
+// Get global stats (Unique feature)
+app.get('/api/stats', async (req, res) => {
+  try {
+    const { content: index } = await getIndex();
+    res.json({
+      users: Object.keys(index.users).length,
+      communities: Object.keys(index.communities).length,
+      posts: Object.keys(index.posts).length,
+      lastUpdated: index.lastUpdated
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============ USER ROUTES ============
 
 // Register new user
@@ -224,7 +239,8 @@ app.post('/api/auth/register', writeLimiter, async (req, res) => {
       karma: 0,
       posts: [],
       comments: [],
-      communities: []
+      communities: [],
+      avatarUrl: ''
     };
 
     // Save user file to GitHub
@@ -235,7 +251,8 @@ app.post('/api/auth/register', writeLimiter, async (req, res) => {
     index.users[username] = {
       id: userId,
       file: `users/${username}.json`,
-      createdAt: userData.createdAt
+      createdAt: userData.createdAt,
+      avatarUrl: ''
     };
     await updateIndex(index, indexSha);
 
@@ -301,7 +318,7 @@ app.get('/api/u/:username', async (req, res) => {
 
     const { password: _, ...safeUser } = userResult.content;
 
-    // Populate posts with full content instead of just IDs
+    // Populate posts with full content
     const populatedPosts = [];
     if (safeUser.posts && safeUser.posts.length > 0) {
       for (const postId of safeUser.posts) {
@@ -310,12 +327,55 @@ app.get('/api/u/:username', async (req, res) => {
           const postResult = await getFileFromGitHub(postFilePath);
           if (postResult) {
             const { voters, ...safePost } = postResult.content;
+            // Inject avatars/icons
+            safePost.authorAvatar = index.users[safePost.author]?.avatarUrl || '';
+            safePost.communityIcon = index.communities[safePost.community]?.iconUrl || '';
             populatedPosts.push(safePost);
           }
         }
       }
     }
     safeUser.posts = populatedPosts;
+
+    // Populate comments with content
+    const populatedComments = [];
+    if (safeUser.comments && safeUser.comments.length > 0) {
+      // Limit to last 20 comments to prevent timeouts
+      const recentComments = safeUser.comments.slice(0, 20);
+      for (const commMeta of recentComments) {
+        if (index.posts[commMeta.postId]) {
+          const postFilePath = `${DATA_PATH}/${index.posts[commMeta.postId].file}`;
+          const postResult = await getFileFromGitHub(postFilePath);
+          if (postResult) {
+            const post = postResult.content;
+            
+            // Helper to find comment in tree
+            const findComment = (comments) => {
+              for (const c of comments) {
+                if (c.id === commMeta.commentId) return c;
+                if (c.replies && c.replies.length > 0) {
+                  const found = findComment(c.replies);
+                  if (found) return found;
+                }
+              }
+              return null;
+            };
+
+            const foundComment = findComment(post.comments);
+            if (foundComment) {
+              populatedComments.push({
+                ...foundComment,
+                postId: post.id,
+                postTitle: post.title,
+                community: post.community,
+                authorAvatar: index.users[foundComment.author]?.avatarUrl || ''
+              });
+            }
+          }
+        }
+      }
+    }
+    safeUser.comments = populatedComments;
 
     res.json(safeUser);
   } catch (error) {
@@ -329,17 +389,24 @@ app.put('/api/u/:username', writeLimiter, async (req, res) => {
     const { username } = req.params;
     const { avatarUrl, about } = req.body;
 
-    const { content: index } = await getIndex();
+    const { content: index, sha: indexSha } = await getIndex();
     if (!index.users[username]) return res.status(404).json({ error: 'User not found' });
 
     const userFilePath = `${DATA_PATH}/${index.users[username].file}`;
     const userResult = await getFileFromGitHub(userFilePath);
     const userData = userResult.content;
 
-    if (avatarUrl !== undefined) userData.avatarUrl = avatarUrl;
+    if (avatarUrl !== undefined) {
+      userData.avatarUrl = avatarUrl;
+      // Update index for fast lookup
+      index.users[username].avatarUrl = avatarUrl;
+    }
     if (about !== undefined) userData.about = about;
 
     await saveFileToGitHub(userFilePath, userData, `Update profile for ${username}`, userResult.sha);
+    if (avatarUrl !== undefined) {
+      await updateIndex(index, indexSha);
+    }
     
     const { password: _, ...safeUser } = userData;
     res.json(safeUser);
@@ -415,8 +482,11 @@ app.post('/api/r', writeLimiter, async (req, res) => {
       creator,
       createdAt: new Date().toISOString(),
       members: [creator],
+      moderators: [creator], // Creator is automatically a mod
       memberCount: 1,
-      posts: []
+      posts: [],
+      iconUrl: '',
+      bannerUrl: ''
     };
 
     // Save community file to GitHub
@@ -428,7 +498,8 @@ app.post('/api/r', writeLimiter, async (req, res) => {
       id: communityId,
       file: `communities/${communityName}.json`,
       createdAt: communityData.createdAt,
-      memberCount: 1
+      memberCount: 1,
+      iconUrl: ''
     };
     await updateIndex(index, indexSha);
 
@@ -467,23 +538,32 @@ app.put('/api/r/:community', writeLimiter, async (req, res) => {
     const { community } = req.params;
     const { bannerUrl, iconUrl, description, user } = req.body;
 
-    const { content: index } = await getIndex();
+    const { content: index, sha: indexSha } = await getIndex();
     if (!index.communities[community]) return res.status(404).json({ error: 'Community not found' });
 
     const communityFilePath = `${DATA_PATH}/${index.communities[community].file}`;
     const communityResult = await getFileFromGitHub(communityFilePath);
     const communityData = communityResult.content;
 
-    // Simple auth check
-    if (communityData.creator !== user) {
-      return res.status(403).json({ error: 'Only creator can edit community' });
+    // Check if user is moderator
+    const isMod = communityData.moderators && communityData.moderators.includes(user);
+    const isCreator = communityData.creator === user;
+
+    if (!isMod && !isCreator) {
+      return res.status(403).json({ error: 'Only moderators can edit community' });
     }
 
     if (bannerUrl !== undefined) communityData.bannerUrl = bannerUrl;
-    if (iconUrl !== undefined) communityData.iconUrl = iconUrl;
+    if (iconUrl !== undefined) {
+      communityData.iconUrl = iconUrl;
+      index.communities[community].iconUrl = iconUrl;
+    }
     if (description !== undefined) communityData.description = description;
 
     await saveFileToGitHub(communityFilePath, communityData, `Update community r/${community}`, communityResult.sha);
+    if (iconUrl !== undefined) {
+      await updateIndex(index, indexSha);
+    }
     res.json(communityData);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -506,7 +586,8 @@ app.get('/api/communities', async (req, res) => {
           displayName: data.displayName,
           description: data.description,
           memberCount: data.memberCount,
-          createdAt: data.createdAt
+          createdAt: data.createdAt,
+          iconUrl: data.iconUrl || meta.iconUrl || ''
         });
       }
     }
@@ -646,7 +727,63 @@ app.get('/api/r/:community/posts/:postId', async (req, res) => {
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    res.json(postResult.content);
+    const post = postResult.content;
+    // Inject avatars/icons
+    post.authorAvatar = index.users[post.author]?.avatarUrl || '';
+    post.communityIcon = index.communities[post.community]?.iconUrl || '';
+
+    // Inject avatars into comments
+    const injectAvatars = (comments) => {
+      return comments.map(c => {
+        c.authorAvatar = index.users[c.author]?.avatarUrl || '';
+        if (c.replies) c.replies = injectAvatars(c.replies);
+        return c;
+      });
+    };
+    if (post.comments) post.comments = injectAvatars(post.comments);
+
+    res.json(post);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete post (Mod/Author)
+app.delete('/api/posts/:postId', writeLimiter, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { username } = req.body;
+
+    const { content: index } = await getIndex();
+    if (!index.posts[postId]) return res.status(404).json({ error: 'Post not found' });
+
+    const postFilePath = `${DATA_PATH}/${index.posts[postId].file}`;
+    const postResult = await getFileFromGitHub(postFilePath);
+    const postData = postResult.content;
+
+    // Check permissions
+    let isAllowed = false;
+    if (postData.author === username) {
+      isAllowed = true;
+    } else {
+      // Check if mod
+      const communityFilePath = `${DATA_PATH}/${index.communities[postData.community].file}`;
+      const communityResult = await getFileFromGitHub(communityFilePath);
+      const communityData = communityResult.content;
+      if (communityData.moderators && communityData.moderators.includes(username)) {
+        isAllowed = true;
+      }
+    }
+
+    if (!isAllowed) return res.status(403).json({ error: 'Permission denied' });
+
+    // Mark as deleted
+    postData.title = '[Deleted by User/Mod]';
+    postData.content = '[removed]';
+    postData.author = '[deleted]';
+    
+    await saveFileToGitHub(postFilePath, postData, `Post ${postId} deleted by ${username}`, postResult.sha);
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -674,6 +811,9 @@ app.get('/api/r/:community/posts', async (req, res) => {
         const postResult = await getFileFromGitHub(postFilePath);
         if (postResult) {
           const { voters, ...safePost } = postResult.content;
+          // Inject avatars/icons
+          safePost.authorAvatar = index.users[safePost.author]?.avatarUrl || '';
+          safePost.communityIcon = index.communities[safePost.community]?.iconUrl || '';
           posts.push(safePost);
         }
       }
@@ -704,6 +844,9 @@ app.get('/api/posts', async (req, res) => {
       const postResult = await getFileFromGitHub(postFilePath);
       if (postResult) {
         const { voters, ...safePost } = postResult.content;
+        // Inject avatars/icons from index
+        safePost.authorAvatar = index.users[safePost.author]?.avatarUrl || '';
+        safePost.communityIcon = index.communities[safePost.community]?.iconUrl || '';
         posts.push(safePost);
       }
     }
@@ -858,7 +1001,17 @@ app.get('/api/posts/:postId/comments', async (req, res) => {
     const postFilePath = `${DATA_PATH}/${index.posts[postId].file}`;
     const postResult = await getFileFromGitHub(postFilePath);
 
-    res.json(postResult.content.comments);
+    // Inject avatars
+    const injectAvatars = (comments) => {
+      return comments.map(c => {
+        c.authorAvatar = index.users[c.author]?.avatarUrl || '';
+        if (c.replies) c.replies = injectAvatars(c.replies);
+        return c;
+      });
+    };
+    const comments = injectAvatars(postResult.content.comments);
+
+    res.json(comments);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

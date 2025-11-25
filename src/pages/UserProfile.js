@@ -128,8 +128,23 @@ function UserProfile() {
               <div className="user-comments">
                 {userData.comments.map((comment, index) => (
                   <div key={index} className="user-comment-item card">
-                    <p>Comment on post: {comment.postId}</p>
-                    <p className="comment-date">{timeAgo(comment.createdAt)}</p>
+                    <div className="comment-context">
+                      <span className="comment-author">{comment.author}</span>
+                      <span className="comment-action-text">commented on</span>
+                      <Link to={`/r/${comment.community}/posts/${comment.postId}`} className="comment-post-title">
+                        {comment.postTitle}
+                      </Link>
+                      <span className="separator">•</span>
+                      <Link to={`/r/${comment.community}`} className="comment-community">
+                        r/{comment.community}
+                      </Link>
+                    </div>
+                    <div className="comment-body-preview">
+                      <p>{comment.content}</p>
+                    </div>
+                    <div className="comment-footer">
+                      <span className="comment-date">{timeAgo(comment.createdAt)}</span>
+                    </div>
                   </div>
                 ))}
               </div>

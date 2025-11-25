@@ -148,3 +148,43 @@
   color: #7c7c7c;
   margin-bottom: 24px;
 }
+
+.comment-context {
+  font-size: 12px;
+  color: #787c7e;
+  margin-bottom: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.comment-author {
+  font-weight: 700;
+  color: #1c1c1c;
+}
+
+.comment-post-title {
+  color: #0079d3;
+  font-weight: 500;
+}
+
+.comment-post-title:hover {
+  text-decoration: underline;
+}
+
+.comment-community {
+  font-weight: 700;
+  color: #1c1c1c;
+}
+
+.comment-community:hover {
+  text-decoration: underline;
+}
+
+.comment-body-preview {
+  font-size: 14px;
+  margin-bottom: 8px;
+  padding-left: 8px;
+  border-left: 2px solid #edeff1;
+}

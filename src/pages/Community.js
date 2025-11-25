@@ -247,6 +247,20 @@ function Community() {
                         <span className="stat-label">Posts</span>
                       </div>
                     </div>
+                    
+                    {communityData.moderators && (
+                      <div className="moderators-section">
+                        <h4>Moderators</h4>
+                        <div className="moderators-list">
+                          {communityData.moderators.map(mod => (
+                            <Link key={mod} to={`/u/${mod}`} className="moderator-link">
+                              u/{mod}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <p className="created-date">
                       Created {new Date(communityData.createdAt).toLocaleDateString()}
                     </p>

@@ -43,8 +43,8 @@ function Sidebar({ communities = [] }) {
 
       <div className="sidebar-card card">
         <div className="sidebar-content footer-links">
-          <p>© 2024 Uni-post by Sirco</p>
-          <p>All data stored in GitHub</p>
+          <p>© 2025 Uni-post by Sirco</p>
+          <p>All rights reserved</p>
         </div>
       </div>
     </aside>

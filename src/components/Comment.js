@@ -50,6 +50,11 @@ function Comment({ comment, postId, onReply }) {
       <div className="comment-thread-line"></div>
       <div className="comment-content">
         <div className="comment-meta">
+          {comment.authorAvatar ? (
+            <img src={comment.authorAvatar} alt="" className="comment-avatar" />
+          ) : (
+            <div className="comment-avatar-placeholder">👤</div>
+          )}
           <span className="comment-author">{comment.author}</span>
           <span className="separator">•</span>
           <span className="comment-time">{timeAgo(comment.createdAt)}</span>

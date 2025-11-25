@@ -1,16 +1,17 @@
 # Uni-post
 
-Red!t but better and made by Sirco!!!!
+The Open Data Social Platform by Sirco.
 
-A Reddit-like community platform built with React and Node.js. All data is stored in this GitHub repository as JSON files!
+Uni-post is a community platform where you own your identity. Unlike other social networks, **Uni-post stores all data directly in a GitHub repository** as open JSON files, ensuring complete transparency and data portability.
 
 ## Features
 
-- 🏠 **Communities** - Create and join communities (like subreddits)
-- 📝 **Posts** - Create posts with titles and content
-- 💬 **Comments** - Comment on posts with nested replies
-- ⬆️ **Voting** - Upvote and downvote posts and comments
-- 👤 **User Accounts** - Register and login to participate
+- 🏠 **Communities** - Create and join topic-based groups
+- 📝 **Posts** - Share content with rich text and media
+- 💬 **Discussions** - Threaded conversations with nested replies
+- ⬆️ **Reputation** - Community-driven content curation
+- 👤 **User Profiles** - Customize your avatar and bio
+- 🛡️ **Moderation** - Community creators become moderators automatically
 - 📁 **GitHub Storage** - All data is stored as JSON files in this repo
 
 ## How It Works
@@ -18,7 +19,7 @@ A Reddit-like community platform built with React and Node.js. All data is store
 All data is stored in the `data/` folder of this repository:
 - `data/index.json` - Root index that tracks all content locations
 - `data/users/` - User profile JSON files
-- `data/communities/` - Community (subreddit) JSON files  
+- `data/communities/` - Community JSON files  
 - `data/posts/` - Post JSON files with comments
 
 The Node.js server uses the GitHub API to read and write these JSON files directly to the repository.
@@ -50,9 +51,9 @@ The Node.js server uses the GitHub API to read and write these JSON files direct
 
 ## URL Structure
 
-- `/` - Home feed with all posts
+- `/` - Home feed
 - `/r/:community` - Community page
-- `/r/:community/posts/:postId` - Post with comments
+- `/r/:community/posts/:postId` - Post discussion
 - `/u/:username` - User profile
 - `/submit` - Create a new post
 - `/create-community` - Create a new community

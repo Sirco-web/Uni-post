@@ -9,6 +9,7 @@ function Post({ post, showCommunity = true }) {
   const [userVote, setUserVote] = useState(0);
   const [isSaved, setIsSaved] = useState(false);
   const [showShareTooltip, setShowShareTooltip] = useState(false);
+  const [isDeleted, setIsDeleted] = useState(false);
 
   useEffect(() => {
     if (user && user.savedPosts) {
@@ -67,6 +68,24 @@ function Post({ post, showCommunity = true }) {
     });
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm('Are you sure you want to delete this post?')) return;
+
+    try {
+      const response = await fetch(`/api/posts/${post.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username })
+      });
+
+      if (response.ok) {
+        setIsDeleted(true);
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+    }
+  };
+
   const timeAgo = (dateString) => {
     const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
     
@@ -76,6 +95,8 @@ function Post({ post, showCommunity = true }) {
     if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
     return new Date(dateString).toLocaleDateString();
   };
+
+  if (isDeleted) return null;
 
   return (
     <div className="post card">
@@ -101,14 +122,25 @@ function Post({ post, showCommunity = true }) {
         <div className="post-meta">
           {showCommunity && (
             <>
-              <Link to={`/r/${post.community}`} className="post-community">
-                r/{post.community}
+              <Link to={`/r/${post.community}`} className="post-community-link">
+                {post.communityIcon ? (
+                  <img src={post.communityIcon} alt="" className="post-community-icon" />
+                ) : (
+                  <span className="post-community-icon-placeholder">r/</span>
+                )}
+                <span className="post-community-name">r/{post.community}</span>
               </Link>
               <span className="separator">•</span>
             </>
           )}
           <span className="post-author">
-            Posted by <Link to={`/u/${post.author}`}>u/{post.author}</Link>
+            Posted by 
+            <Link to={`/u/${post.author}`} className="author-link">
+              {post.authorAvatar && (
+                <img src={post.authorAvatar} alt="" className="post-author-avatar" />
+              )}
+              u/{post.author}
+            </Link>
           </span>
           <span className="separator">•</span>
           <span className="post-time">{timeAgo(post.createdAt)}</span>
@@ -139,6 +171,11 @@ function Post({ post, showCommunity = true }) {
           >
             <span>{isSaved ? '💾' : '🔖'}</span> {isSaved ? 'Saved' : 'Save'}
           </button>
+          {user && (user.username === post.author) && (
+            <button className="post-action delete-btn" onClick={handleDelete}>
+              <span>🗑️</span> Delete
+            </button>
+          )}
         </div>
       </div>
     </div>

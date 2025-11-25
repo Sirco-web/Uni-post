@@ -162,3 +162,27 @@
   padding: 4px 8px;
   font-size: 12px;
 }
+
+.moderators-section {
+  margin: 16px 0;
+  padding-top: 16px;
+  border-top: 1px solid #edeff1;
+}
+
+.moderators-section h4 {
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #787c7e;
+  margin-bottom: 8px;
+}
+
+.moderator-link {
+  display: block;
+  font-size: 12px;
+  color: #0079d3;
+  margin-bottom: 4px;
+}
+
+.moderator-link:hover {
+  text-decoration: underline;
+}

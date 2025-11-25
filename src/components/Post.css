@@ -154,3 +154,44 @@
   margin-bottom: 4px;
   white-space: nowrap;
 }
+
+.post-community-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  color: #1c1c1c;
+}
+
+.post-community-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.post-community-icon-placeholder {
+  font-size: 10px;
+  background: #edeff1;
+  padding: 2px;
+  border-radius: 50%;
+}
+
+.author-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.post-author-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.delete-btn:hover {
+  background: #ffebee;
+  color: #d32f2f;
+}
