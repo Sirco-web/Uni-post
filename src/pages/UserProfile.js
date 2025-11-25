@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import Post from '../components/Post';
 import './UserProfile.css';
 
 function UserProfile() {
   const { username } = useParams();
+  const { user, updateUser } = useAuth();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('posts');
+  
+  // Edit mode states
+  const [isEditing, setIsEditing] = useState(false);
+  const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  const [editAbout, setEditAbout] = useState('');
 
   useEffect(() => {
     fetchUser();
@@ -19,6 +27,8 @@ function UserProfile() {
       if (response.ok) {
         const data = await response.json();
         setUserData(data);
+        setEditAvatarUrl(data.avatarUrl || '');
+        setEditAbout(data.about || '');
       } else {
         setError('User not found');
       }
@@ -26,6 +36,30 @@ function UserProfile() {
       setError('Error loading user');
     }
     setLoading(false);
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      const response = await fetch(`/api/u/${username}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          avatarUrl: editAvatarUrl,
+          about: editAbout
+        })
+      });
+
+      if (response.ok) {
+        const updatedUser = await response.json();
+        setUserData(updatedUser);
+        setIsEditing(false);
+        if (user && user.username === username) {
+          updateUser(updatedUser);
+        }
+      }
+    } catch (err) {
+      console.error('Error updating profile:', err);
+    }
   };
 
   const timeAgo = (dateString) => {
@@ -77,10 +111,8 @@ function UserProfile() {
           {activeTab === 'posts' && (
             userData.posts.length > 0 ? (
               <div className="user-posts">
-                {userData.posts.map((postId) => (
-                  <div key={postId} className="user-post-item card">
-                    <p>Post ID: {postId}</p>
-                  </div>
+                {userData.posts.map((post) => (
+                  <Post key={post.id} post={post} showCommunity={true} />
                 ))}
               </div>
             ) : (
@@ -113,23 +145,65 @@ function UserProfile() {
         <aside className="sidebar">
           <div className="sidebar-card card">
             <div className="sidebar-header user-header">
-              <div className="user-avatar-large">👤</div>
+              {userData.avatarUrl ? (
+                <img src={userData.avatarUrl} alt={userData.username} className="user-avatar-large-img" />
+              ) : (
+                <div className="user-avatar-large">👤</div>
+              )}
             </div>
             <div className="sidebar-content">
               <h2 className="profile-username">u/{userData.username}</h2>
-              <div className="profile-stats">
-                <div className="profile-stat">
-                  <span className="stat-value">{userData.karma}</span>
-                  <span className="stat-label">Karma</span>
+              
+              {isEditing ? (
+                <div className="edit-profile-form">
+                  <div className="form-group">
+                    <label>Avatar URL</label>
+                    <input 
+                      type="text" 
+                      className="input" 
+                      value={editAvatarUrl}
+                      onChange={(e) => setEditAvatarUrl(e.target.value)}
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>About</label>
+                    <textarea 
+                      className="textarea" 
+                      value={editAbout}
+                      onChange={(e) => setEditAbout(e.target.value)}
+                      placeholder="Tell us about yourself"
+                      style={{minHeight: '80px'}}
+                    />
+                  </div>
+                  <div className="edit-actions">
+                    <button className="btn btn-secondary" onClick={() => setIsEditing(false)}>Cancel</button>
+                    <button className="btn btn-primary" onClick={handleSaveProfile}>Save</button>
+                  </div>
                 </div>
-                <div className="profile-stat">
-                  <span className="stat-value">{userData.posts.length}</span>
-                  <span className="stat-label">Posts</span>
-                </div>
-              </div>
-              <p className="profile-joined">
-                📅 Joined {timeAgo(userData.createdAt)}
-              </p>
+              ) : (
+                <>
+                  {userData.about && <p className="profile-about">{userData.about}</p>}
+                  <div className="profile-stats">
+                    <div className="profile-stat">
+                      <span className="stat-value">{userData.karma}</span>
+                      <span className="stat-label">Karma</span>
+                    </div>
+                    <div className="profile-stat">
+                      <span className="stat-value">{userData.posts.length}</span>
+                      <span className="stat-label">Posts</span>
+                    </div>
+                  </div>
+                  <p className="profile-joined">
+                    📅 Joined {timeAgo(userData.createdAt)}
+                  </p>
+                  {user && user.username === username && (
+                    <button className="btn btn-secondary sidebar-btn" onClick={() => setIsEditing(true)}>
+                      Edit Profile
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </aside>

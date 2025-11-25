@@ -81,8 +81,16 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('unipost_session');
   };
 
+  const updateUser = (updates) => {
+    setUser(prev => {
+      const newUser = { ...prev, ...updates };
+      saveSession(newUser);
+      return newUser;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

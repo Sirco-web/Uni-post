@@ -13,6 +13,12 @@ function Community() {
   const [error, setError] = useState('');
   const [sort, setSort] = useState('new');
   const [joined, setJoined] = useState(false);
+  
+  // Edit mode
+  const [isEditing, setIsEditing] = useState(false);
+  const [editBannerUrl, setEditBannerUrl] = useState('');
+  const [editIconUrl, setEditIconUrl] = useState('');
+  const [editDescription, setEditDescription] = useState('');
 
   useEffect(() => {
     fetchCommunity();
@@ -20,8 +26,11 @@ function Community() {
   }, [community, sort]);
 
   useEffect(() => {
-    if (communityData && user) {
-      setJoined(communityData.members?.includes(user.username));
+    if (communityData) {
+      if (user) setJoined(communityData.members?.includes(user.username));
+      setEditBannerUrl(communityData.bannerUrl || '');
+      setEditIconUrl(communityData.iconUrl || '');
+      setEditDescription(communityData.description || '');
     }
   }, [communityData, user]);
 
@@ -71,6 +80,29 @@ function Community() {
     }
   };
 
+  const handleSaveCommunity = async () => {
+    try {
+      const response = await fetch(`/api/r/${community}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bannerUrl: editBannerUrl,
+          iconUrl: editIconUrl,
+          description: editDescription,
+          user: user.username
+        })
+      });
+
+      if (response.ok) {
+        const updatedData = await response.json();
+        setCommunityData(updatedData);
+        setIsEditing(false);
+      }
+    } catch (err) {
+      console.error('Error updating community:', err);
+    }
+  };
+
   if (error) {
     return (
       <div className="error-page">
@@ -83,13 +115,20 @@ function Community() {
 
   return (
     <div className="community-page">
-      <div className="community-banner">
+      <div 
+        className="community-banner"
+        style={communityData?.bannerUrl ? { backgroundImage: `url(${communityData.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
+      >
         <div className="community-banner-inner"></div>
       </div>
 
       <div className="community-header">
         <div className="community-header-content">
-          <div className="community-icon">🏠</div>
+          {communityData?.iconUrl ? (
+            <img src={communityData.iconUrl} alt={community} className="community-icon-img" />
+          ) : (
+            <div className="community-icon">🏠</div>
+          )}
           <div className="community-info">
             <h1>r/{community}</h1>
             {communityData && (
@@ -161,24 +200,67 @@ function Community() {
                 <h3>About Community</h3>
               </div>
               <div className="sidebar-content">
-                <p>{communityData.description || 'No description available.'}</p>
-                <div className="community-stats">
-                  <div className="stat">
-                    <span className="stat-value">{communityData.memberCount}</span>
-                    <span className="stat-label">Members</span>
+                {isEditing ? (
+                  <div className="edit-community-form">
+                    <div className="form-group">
+                      <label>Description</label>
+                      <textarea 
+                        className="textarea" 
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        style={{minHeight: '80px'}}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Banner URL</label>
+                      <input 
+                        type="text" 
+                        className="input" 
+                        value={editBannerUrl}
+                        onChange={(e) => setEditBannerUrl(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Icon URL</label>
+                      <input 
+                        type="text" 
+                        className="input" 
+                        value={editIconUrl}
+                        onChange={(e) => setEditIconUrl(e.target.value)}
+                      />
+                    </div>
+                    <div className="edit-actions">
+                      <button className="btn btn-secondary" onClick={() => setIsEditing(false)}>Cancel</button>
+                      <button className="btn btn-primary" onClick={handleSaveCommunity}>Save</button>
+                    </div>
                   </div>
-                  <div className="stat">
-                    <span className="stat-value">{posts.length}</span>
-                    <span className="stat-label">Posts</span>
-                  </div>
-                </div>
-                <p className="created-date">
-                  Created {new Date(communityData.createdAt).toLocaleDateString()}
-                </p>
-                {user && (
-                  <Link to={`/r/${community}/submit`} className="btn btn-primary sidebar-btn">
-                    Create Post
-                  </Link>
+                ) : (
+                  <>
+                    <p>{communityData.description || 'No description available.'}</p>
+                    <div className="community-stats">
+                      <div className="stat">
+                        <span className="stat-value">{communityData.memberCount}</span>
+                        <span className="stat-label">Members</span>
+                      </div>
+                      <div className="stat">
+                        <span className="stat-value">{posts.length}</span>
+                        <span className="stat-label">Posts</span>
+                      </div>
+                    </div>
+                    <p className="created-date">
+                      Created {new Date(communityData.createdAt).toLocaleDateString()}
+                    </p>
+                    {user && (
+                      <Link to={`/r/${community}/submit`} className="btn btn-primary sidebar-btn">
+                        Create Post
+                      </Link>
+                    )}
+                    {user && user.username === communityData.creator && (
+                      <button className="btn btn-secondary sidebar-btn" onClick={() => setIsEditing(true)}>
+                        Mod Tools
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>

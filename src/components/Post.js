@@ -1,12 +1,23 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Post.css';
 
 function Post({ post, showCommunity = true }) {
-  const { user } = useAuth();
-  const [score, setScore] = React.useState(post.score);
-  const [userVote, setUserVote] = React.useState(0);
+  const { user, updateUser } = useAuth();
+  const [score, setScore] = useState(post.score);
+  const [userVote, setUserVote] = useState(0);
+  const [isSaved, setIsSaved] = useState(false);
+  const [showShareTooltip, setShowShareTooltip] = useState(false);
+
+  useEffect(() => {
+    if (user && user.savedPosts) {
+      setIsSaved(user.savedPosts.includes(post.id));
+    }
+    if (post.voters && user) {
+      setUserVote(post.voters[user.username] || 0);
+    }
+  }, [user, post]);
 
   const handleVote = async (vote) => {
     if (!user) return;
@@ -28,6 +39,32 @@ function Post({ post, showCommunity = true }) {
     } catch (error) {
       console.error('Vote error:', error);
     }
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+
+    try {
+      const response = await fetch(`/api/users/${user.username}/save/${post.id}`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setIsSaved(data.saved);
+        updateUser({ savedPosts: data.savedPosts });
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+    }
+  };
+
+  const handleShare = () => {
+    const url = `${window.location.origin}/r/${post.community}/posts/${post.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setShowShareTooltip(true);
+      setTimeout(() => setShowShareTooltip(false), 2000);
+    });
   };
 
   const timeAgo = (dateString) => {
@@ -91,11 +128,16 @@ function Post({ post, showCommunity = true }) {
           <Link to={`/r/${post.community}/posts/${post.id}`} className="post-action">
             <span>💬</span> {post.commentCount} Comments
           </Link>
-          <button className="post-action">
+          <button className="post-action" onClick={handleShare} style={{position: 'relative'}}>
             <span>🔗</span> Share
+            {showShareTooltip && <span className="share-tooltip">Copied!</span>}
           </button>
-          <button className="post-action">
-            <span>💾</span> Save
+          <button 
+            className={`post-action ${isSaved ? 'active' : ''}`} 
+            onClick={handleSave}
+            disabled={!user}
+          >
+            <span>{isSaved ? '💾' : '🔖'}</span> {isSaved ? 'Saved' : 'Save'}
           </button>
         </div>
       </div>

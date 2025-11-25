@@ -12,7 +12,7 @@ const app = express();
 
 // Trust reverse proxy headers so express-rate-limit can use X-Forwarded-For
 // Set to `true` (trust all proxies) or change to a specific value if needed.
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 console.log('Express trust proxy:', app.get('trust proxy'));
 
 const PORT = process.env.PORT || 5000;
@@ -56,7 +56,8 @@ const writeLimiter = rateLimit({
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased limit for large files
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(limiter); // Apply rate limiting to all requests
 
 // ============ GITHUB DATA HELPERS ============
@@ -71,11 +72,36 @@ async function getFileFromGitHub(filePath) {
       ref: GITHUB_BRANCH
     });
     
-    const content = Buffer.from(response.data.content, 'base64').toString('utf8');
-    return {
-      content: JSON.parse(content),
-      sha: response.data.sha
-    };
+    let content;
+    // GitHub API returns content for files < 1MB
+    if (response.data.content) {
+      content = Buffer.from(response.data.content, 'base64').toString('utf8');
+    } else if (response.data.sha) {
+      // For files > 1MB, content is missing in getContent response, fetch via Blob API
+      console.log(`Fetching large file via Blob API: ${filePath}`);
+      const blob = await octokit.git.getBlob({
+        owner: GITHUB_OWNER,
+        repo: GITHUB_REPO,
+        file_sha: response.data.sha
+      });
+      content = Buffer.from(blob.data.content, 'base64').toString('utf8');
+    }
+
+    if (!content || content.trim() === '') {
+      console.warn(`File ${filePath} is empty`);
+      return { content: {}, sha: response.data.sha };
+    }
+
+    try {
+      return {
+        content: JSON.parse(content),
+        sha: response.data.sha
+      };
+    } catch (parseError) {
+      console.error(`Error parsing JSON for ${filePath}:`, parseError);
+      // Return empty object if JSON is corrupt to prevent crash
+      return { content: {}, sha: response.data.sha };
+    }
   } catch (error) {
     if (error.status === 404) {
       return null;
@@ -86,6 +112,9 @@ async function getFileFromGitHub(filePath) {
 
 // Create or update file in GitHub repo
 async function saveFileToGitHub(filePath, data, message, existingSha = null) {
+  if (data === undefined) {
+    throw new Error('Cannot save undefined data');
+  }
   const content = Buffer.from(JSON.stringify(data, null, 2)).toString('base64');
   
   const params = {
@@ -108,8 +137,9 @@ async function saveFileToGitHub(filePath, data, message, existingSha = null) {
 // Get index file
 async function getIndex() {
   const result = await getFileFromGitHub(`${DATA_PATH}/index.json`);
-  if (!result) {
-    // Create initial index if it doesn't exist
+  
+  // Initialize default structure if result is null or content is empty/corrupt
+  if (!result || !result.content || Object.keys(result.content).length === 0) {
     const initialIndex = {
       version: '1.0.0',
       lastUpdated: new Date().toISOString(),
@@ -117,9 +147,17 @@ async function getIndex() {
       users: {},
       posts: {}
     };
-    await saveFileToGitHub(`${DATA_PATH}/index.json`, initialIndex, 'Initialize Uni-post data index');
+    
+    const sha = result ? result.sha : null;
+    await saveFileToGitHub(`${DATA_PATH}/index.json`, initialIndex, 'Initialize/Repair Uni-post data index', sha);
     return { content: initialIndex, sha: null };
   }
+
+  // Ensure required properties exist to prevent crashes
+  if (!result.content.users) result.content.users = {};
+  if (!result.content.communities) result.content.communities = {};
+  if (!result.content.posts) result.content.posts = {};
+
   return result;
 }
 
@@ -262,7 +300,80 @@ app.get('/api/u/:username', async (req, res) => {
     }
 
     const { password: _, ...safeUser } = userResult.content;
+
+    // Populate posts with full content instead of just IDs
+    const populatedPosts = [];
+    if (safeUser.posts && safeUser.posts.length > 0) {
+      for (const postId of safeUser.posts) {
+        if (index.posts[postId]) {
+          const postFilePath = `${DATA_PATH}/${index.posts[postId].file}`;
+          const postResult = await getFileFromGitHub(postFilePath);
+          if (postResult) {
+            const { voters, ...safePost } = postResult.content;
+            populatedPosts.push(safePost);
+          }
+        }
+      }
+    }
+    safeUser.posts = populatedPosts;
+
     res.json(safeUser);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update user profile (Avatar, About)
+app.put('/api/u/:username', writeLimiter, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { avatarUrl, about } = req.body;
+
+    const { content: index } = await getIndex();
+    if (!index.users[username]) return res.status(404).json({ error: 'User not found' });
+
+    const userFilePath = `${DATA_PATH}/${index.users[username].file}`;
+    const userResult = await getFileFromGitHub(userFilePath);
+    const userData = userResult.content;
+
+    if (avatarUrl !== undefined) userData.avatarUrl = avatarUrl;
+    if (about !== undefined) userData.about = about;
+
+    await saveFileToGitHub(userFilePath, userData, `Update profile for ${username}`, userResult.sha);
+    
+    const { password: _, ...safeUser } = userData;
+    res.json(safeUser);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Save/Unsave Post
+app.post('/api/users/:username/save/:postId', writeLimiter, async (req, res) => {
+  try {
+    const { username, postId } = req.params;
+    const { content: index } = await getIndex();
+
+    if (!index.users[username]) return res.status(404).json({ error: 'User not found' });
+    
+    const userFilePath = `${DATA_PATH}/${index.users[username].file}`;
+    const userResult = await getFileFromGitHub(userFilePath);
+    const userData = userResult.content;
+
+    if (!userData.savedPosts) userData.savedPosts = [];
+
+    const existingIndex = userData.savedPosts.indexOf(postId);
+    let saved = false;
+    if (existingIndex > -1) {
+      userData.savedPosts.splice(existingIndex, 1);
+      saved = false;
+    } else {
+      userData.savedPosts.push(postId);
+      saved = true;
+    }
+
+    await saveFileToGitHub(userFilePath, userData, `User ${username} ${saved ? 'saved' : 'unsaved'} post ${postId}`, userResult.sha);
+    res.json({ saved, savedPosts: userData.savedPosts });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -345,6 +456,35 @@ app.get('/api/r/:community', async (req, res) => {
     }
 
     res.json(communityResult.content);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update community (Banner, Icon)
+app.put('/api/r/:community', writeLimiter, async (req, res) => {
+  try {
+    const { community } = req.params;
+    const { bannerUrl, iconUrl, description, user } = req.body;
+
+    const { content: index } = await getIndex();
+    if (!index.communities[community]) return res.status(404).json({ error: 'Community not found' });
+
+    const communityFilePath = `${DATA_PATH}/${index.communities[community].file}`;
+    const communityResult = await getFileFromGitHub(communityFilePath);
+    const communityData = communityResult.content;
+
+    // Simple auth check
+    if (communityData.creator !== user) {
+      return res.status(403).json({ error: 'Only creator can edit community' });
+    }
+
+    if (bannerUrl !== undefined) communityData.bannerUrl = bannerUrl;
+    if (iconUrl !== undefined) communityData.iconUrl = iconUrl;
+    if (description !== undefined) communityData.description = description;
+
+    await saveFileToGitHub(communityFilePath, communityData, `Update community r/${community}`, communityResult.sha);
+    res.json(communityData);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

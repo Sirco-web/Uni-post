@@ -136,3 +136,21 @@
 .post-action:hover {
   background: #edeff1;
 }
+
+.post-action.active {
+  color: #0079d3;
+}
+
+.share-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1c1c1c;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
