@@ -1,0 +1,34 @@
+.feed-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+}
+
+.sort-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.sort-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #878a8c;
+  cursor: pointer;
+}
+
+.sort-tab:hover {
+  background: #edeff1;
+}
+
+.sort-tab.active {
+  background: #edeff1;
+  color: #0079d3;
+}

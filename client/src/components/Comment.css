@@ -1,0 +1,88 @@
+.comment {
+  display: flex;
+  position: relative;
+  padding-left: 8px;
+}
+
+.comment-thread-line {
+  position: absolute;
+  left: 12px;
+  top: 28px;
+  bottom: 0;
+  width: 2px;
+  background: #edeff1;
+}
+
+.comment-thread-line:hover {
+  background: #0079d3;
+}
+
+.comment-content {
+  flex: 1;
+  padding: 8px 8px 8px 16px;
+}
+
+.comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #787c7e;
+  margin-bottom: 4px;
+}
+
+.comment-author {
+  font-weight: 700;
+  color: #1c1c1c;
+}
+
+.comment-body {
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.comment-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.comment-action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: #878a8c;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.comment-action:hover {
+  background: #edeff1;
+}
+
+.comment-replies {
+  margin-top: 8px;
+}
+
+.reply-form {
+  margin-top: 8px;
+  padding: 8px;
+  background: #f6f7f8;
+  border-radius: 4px;
+}
+
+.reply-textarea {
+  min-height: 80px;
+  margin-bottom: 8px;
+}
+
+.reply-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

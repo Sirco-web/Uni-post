@@ -1,0 +1,83 @@
+.sidebar-card {
+  margin-bottom: 16px;
+}
+
+.sidebar-header {
+  padding: 12px;
+  background: #ff4500;
+  color: white;
+  border-radius: 4px 4px 0 0;
+}
+
+.sidebar-header h3 {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sidebar-content {
+  padding: 12px;
+}
+
+.sidebar-content p {
+  font-size: 14px;
+  color: #1c1c1c;
+  margin-bottom: 12px;
+}
+
+.sidebar-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.community-list {
+  list-style: none;
+}
+
+.community-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #edeff1;
+}
+
+.community-item:last-child {
+  border-bottom: none;
+}
+
+.community-rank {
+  width: 24px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0079d3;
+}
+
+.community-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.community-link:hover .community-name {
+  text-decoration: underline;
+}
+
+.community-icon {
+  font-size: 20px;
+}
+
+.community-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.footer-links {
+  text-align: center;
+}
+
+.footer-links p {
+  font-size: 12px;
+  color: #878a8c;
+  margin-bottom: 4px;
+}

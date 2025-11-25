@@ -1,0 +1,85 @@
+.create-community-page {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.create-community-container {
+  padding: 24px;
+}
+
+.create-community-container h1 {
+  font-size: 20px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #7c7c7c;
+  margin-bottom: 24px;
+}
+
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-label {
+  display: block;
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: #7c7c7c;
+  margin-bottom: 8px;
+}
+
+.name-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: #f6f7f8;
+  border: 1px solid #edeff1;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.name-input-wrapper:focus-within {
+  border-color: #0079d3;
+  background: white;
+}
+
+.name-prefix {
+  padding: 12px;
+  color: #1c1c1c;
+  font-weight: 500;
+  background: #edeff1;
+}
+
+.name-input {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.name-input:focus {
+  border: none;
+  outline: none;
+}
+
+.char-count {
+  display: block;
+  text-align: right;
+  font-size: 10px;
+  color: #878a8c;
+  margin-top: 4px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 24px;
+  border-top: 1px solid #edeff1;
+}

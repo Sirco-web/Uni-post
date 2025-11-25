@@ -1,0 +1,55 @@
+.create-post-page {
+  max-width: 740px;
+  margin: 0 auto;
+}
+
+.create-post-container h1 {
+  font-size: 18px;
+  font-weight: 500;
+  padding-bottom: 16px;
+  border-bottom: 1px solid white;
+  margin-bottom: 16px;
+}
+
+.community-select {
+  padding: 12px;
+  font-size: 14px;
+  max-width: 300px;
+  margin-bottom: 8px;
+}
+
+.post-form {
+  padding: 16px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.title-input {
+  font-size: 16px;
+  padding-right: 60px;
+}
+
+.char-count {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: #878a8c;
+  font-weight: 700;
+}
+
+.content-textarea {
+  min-height: 200px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #edeff1;
+}

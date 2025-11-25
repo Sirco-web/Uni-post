@@ -1,0 +1,156 @@
+.App {
+  min-height: 100vh;
+}
+
+/* Layout containers */
+.page-container {
+  display: flex;
+  gap: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.feed-container {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar {
+  width: 312px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 960px) {
+  .sidebar {
+    display: none;
+  }
+}
+
+/* Cards */
+.card {
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.card:hover {
+  border-color: #898989;
+}
+
+/* Buttons */
+.btn {
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  transition: background-color 0.2s;
+}
+
+.btn-primary {
+  background-color: #ff4500;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #ff5722;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: #ff4500;
+  border: 1px solid #ff4500;
+}
+
+.btn-secondary:hover {
+  background-color: rgba(255, 69, 0, 0.1);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: #878a8c;
+}
+
+.btn-ghost:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Form elements */
+.input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #edeff1;
+  border-radius: 4px;
+  font-size: 14px;
+  background: #f6f7f8;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #0079d3;
+  background: white;
+}
+
+.textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #edeff1;
+  border-radius: 4px;
+  font-size: 14px;
+  background: #f6f7f8;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: #0079d3;
+  background: white;
+}
+
+/* Loading states */
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  color: #878a8c;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #edeff1;
+  border-top-color: #ff4500;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error message */
+.error-message {
+  background-color: #fff2f0;
+  border: 1px solid #ffccc7;
+  color: #ff4500;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #878a8c;
+}
+
+.empty-state h3 {
+  margin-bottom: 8px;
+  color: #1c1c1c;
+}
