@@ -1,0 +1,37 @@
+.admin-panel-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.admin-container {
+  padding: 24px;
+}
+
+.admin-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #edeff1;
+}
+
+.description {
+  color: #7c7c7c;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.success-message {
+  color: #2e7d32;
+  background-color: #e8f5e9;
+  padding: 10px;
+  border-radius: 4px;
+  margin: 10px 0;
+}
+
+.error-message {
+  color: #c62828;
+  background-color: #ffebee;
+  padding: 10px;
+  border-radius: 4px;
+  margin: 10px 0;
+}

@@ -49,6 +49,104 @@ if (missingVars.length > 0) {
 // Initialize Octokit
 const octokit = new Octokit({ auth: GITHUB_TOKEN });
 
+// ============ CONFIG & CLEANUP HELPERS ============
+
+async function getConfig() {
+  const result = await getFileFromGitHub(`${DATA_PATH}/config.json`);
+  if (!result || !result.content || Object.keys(result.content).length === 0) {
+    return { retentionDays: 20 }; // Default
+  }
+  return result.content;
+}
+
+async function saveConfig(config, message) {
+  await saveFileToGitHub(`${DATA_PATH}/config.json`, config, message);
+}
+
+async function deleteFileFromGitHub(filePath, message) {
+  try {
+    // We need the SHA to delete
+    const result = await getFileFromGitHub(filePath);
+    if (!result || !result.sha) return;
+
+    await octokit.repos.deleteFile({
+      owner: GITHUB_OWNER,
+      repo: GITHUB_REPO,
+      path: filePath,
+      message: message,
+      sha: result.sha,
+      branch: GITHUB_BRANCH
+    });
+  } catch (error) {
+    console.error(`Failed to delete file ${filePath}:`, error.message);
+  }
+}
+
+async function cleanupOldPosts() {
+  try {
+    const config = await getConfig();
+    const { content: index, sha: indexSha } = await getIndex();
+    const now = new Date();
+    const retentionMs = config.retentionDays * 24 * 60 * 60 * 1000;
+    
+    let changed = false;
+    const postsToDelete = [];
+
+    // Identify posts to delete
+    for (const [postId, meta] of Object.entries(index.posts)) {
+      const age = now - new Date(meta.createdAt);
+      
+      // Check if expired
+      if (age > retentionMs) {
+        // We need to check activity (comments). 
+        // Since index doesn't always have comment count in meta (it might, but let's be safe),
+        // we rely on the fact that we want to clean up "no activity".
+        // If we don't have comment count in index, we might skip or assume 0.
+        // However, the createPost route DOES NOT add commentCount to index meta currently.
+        // It only adds: file, community, author, createdAt, slug.
+        
+        // To strictly follow "no activity like commenting", we would need to fetch the post.
+        // But fetching every old post is expensive.
+        // STRATEGY: If it's old, we fetch it ONCE to check. If inactive, delete.
+        
+        try {
+          const postResult = await getFileFromGitHub(`${DATA_PATH}/${meta.file}`);
+          if (postResult && postResult.content) {
+            const post = postResult.content;
+            if (!post.comments || post.comments.length === 0) {
+              postsToDelete.push(postId);
+            }
+          }
+        } catch (err) {
+          console.warn(`Could not check post ${postId} for cleanup:`, err.message);
+        }
+      }
+    }
+
+    // Execute deletions (Limit to 5 per run to avoid rate limits)
+    for (const postId of postsToDelete.slice(0, 5)) {
+      const meta = index.posts[postId];
+      if (meta) {
+        console.log(`Cleaning up old inactive post: ${postId}`);
+        await deleteFileFromGitHub(`${DATA_PATH}/${meta.file}`, `Cleanup: Auto-delete old post ${postId}`);
+        delete index.posts[postId];
+        
+        // Also remove from community list if possible (requires fetching community file, expensive, skipping for now)
+        // Ideally we should clean references in users/communities too, but that's very heavy on API.
+        // For now, we just remove the file and the index entry.
+        
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      await updateIndex(index, indexSha);
+    }
+  } catch (error) {
+    console.error('Cleanup job failed:', error);
+  }
+}
+
 // Rate limiting configuration
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -178,6 +276,37 @@ async function getIndex() {
 async function updateIndex(indexData, sha) {
   indexData.lastUpdated = new Date().toISOString();
   await saveFileToGitHub(`${DATA_PATH}/index.json`, indexData, 'Update Uni-post index', sha);
+}
+
+// Helper for "New Program" direct access
+async function getDirectWithFallback(type, id, fallbackFn) {
+  // Try direct path first ("New Program")
+  // type: 'users', 'communities', 'posts'
+  // id: username, communityName, postId
+  const path = `${DATA_PATH}/${type}/${id}.json`;
+  
+  try {
+    const result = await getFileFromGitHub(path);
+    if (result && result.content && Object.keys(result.content).length > 0) {
+      return result;
+    }
+    throw new Error('Direct fetch returned empty');
+  } catch (error) {
+    // Fallback to Index ("Old Program")
+    console.warn(`
+      !!! SYSTEM ALERT !!!
+      The new direct-access program failed to find or fetch: ${path}
+      Reason: ${error.message}
+      
+      Falling back to the legacy index.json system.
+      This ensures the site stays online even if the direct file structure is unexpected.
+    `);
+    
+    if (fallbackFn) {
+      return await fallbackFn();
+    }
+    throw error;
+  }
 }
 
 // ============ API ROUTES ============
@@ -325,19 +454,20 @@ app.get('/api/u/:username', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const { content: index } = await getIndex();
-
-    if (!index.users[username]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const userFilePath = `${DATA_PATH}/${index.users[username].file}`;
-    const userResult = await getFileFromGitHub(userFilePath);
+    // "New Program": Try direct fetch first
+    const userResult = await getDirectWithFallback('users', username, async () => {
+      // Fallback logic
+      const { content: index } = await getIndex();
+      if (!index.users[username]) return null;
+      const userFilePath = `${DATA_PATH}/${index.users[username].file}`;
+      return await getFileFromGitHub(userFilePath);
+    });
 
     if (!userResult) {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const { content: index } = await getIndex(); // Still need index for cross-referencing avatars
     const { password: _, ...safeUser } = userResult.content;
 
     // Populate posts with full content
@@ -544,14 +674,13 @@ app.get('/api/r/:community', async (req, res) => {
       return res.status(404).json({ error: 'Community not found' });
     }
 
-    const { content: index } = await getIndex();
-
-    if (!index.communities[community]) {
-      return res.status(404).json({ error: 'Community not found' });
-    }
-
-    const communityFilePath = `${DATA_PATH}/${index.communities[community].file}`;
-    const communityResult = await getFileFromGitHub(communityFilePath);
+    // "New Program": Try direct fetch first
+    const communityResult = await getDirectWithFallback('communities', community, async () => {
+      const { content: index } = await getIndex();
+      if (!index.communities[community]) return null;
+      const communityFilePath = `${DATA_PATH}/${index.communities[community].file}`;
+      return await getFileFromGitHub(communityFilePath);
+    });
 
     if (!communityResult) {
       return res.status(404).json({ error: 'Community not found' });
@@ -771,19 +900,20 @@ app.post('/api/r/:community/posts', writeLimiter, async (req, res) => {
 app.get('/api/r/:community/posts/:postId', async (req, res) => {
   try {
     const { postId } = req.params;
-    const { content: index } = await getIndex();
-
-    if (!index.posts[postId]) {
-      return res.status(404).json({ error: 'Post not found' });
-    }
-
-    const postFilePath = `${DATA_PATH}/${index.posts[postId].file}`;
-    const postResult = await getFileFromGitHub(postFilePath);
+    
+    // "New Program": Try direct fetch first
+    const postResult = await getDirectWithFallback('posts', postId, async () => {
+      const { content: index } = await getIndex();
+      if (!index.posts[postId]) return null;
+      const postFilePath = `${DATA_PATH}/${index.posts[postId].file}`;
+      return await getFileFromGitHub(postFilePath);
+    });
 
     if (!postResult) {
       return res.status(404).json({ error: 'Post not found' });
     }
 
+    const { content: index } = await getIndex(); // Need index for avatars
     const post = postResult.content;
     // Inject avatars/icons
     post.authorAvatar = index.users[post.author]?.avatarUrl || '';
@@ -894,6 +1024,11 @@ app.get('/api/r/:community/posts', async (req, res) => {
 // Get all posts (home feed)
 app.get('/api/posts', async (req, res) => {
   try {
+    // Trigger cleanup occasionally (10% chance) to keep index small
+    if (Math.random() < 0.1) {
+      cleanupOldPosts().catch(err => console.error('Background cleanup error:', err));
+    }
+
     const { sort = 'new', limit = 50 } = req.query;
     const { content: index } = await getIndex();
 
@@ -920,6 +1055,32 @@ app.get('/api/posts', async (req, res) => {
     }
 
     res.json(posts.slice(0, parseInt(limit)));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ ADMIN ROUTES ============
+
+app.post('/api/admin/config', writeLimiter, async (req, res) => {
+  try {
+    const { username, retentionDays } = req.body;
+
+    if (username !== 'timco') {
+      return res.status(403).json({ error: 'Permission denied. Only super admin can change config.' });
+    }
+
+    if (!retentionDays || isNaN(retentionDays)) {
+      return res.status(400).json({ error: 'Valid retentionDays required' });
+    }
+
+    const config = { retentionDays: parseInt(retentionDays) };
+    await saveConfig(config, `Admin ${username} updated retention policy to ${retentionDays} days`);
+    
+    // Trigger cleanup immediately
+    cleanupOldPosts();
+
+    res.json({ success: true, config });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

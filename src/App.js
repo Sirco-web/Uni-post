@@ -7,6 +7,7 @@ import PostPage from './pages/PostPage';
 import UserProfile from './pages/UserProfile';
 import CreatePost from './pages/CreatePost';
 import CreateCommunity from './pages/CreateCommunity';
+import AdminPanel from './pages/AdminPanel';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import './styles/App.css';
@@ -24,6 +25,7 @@ function App() {
           <Route path="/submit" element={<CreatePost />} />
           <Route path="/r/:community/submit" element={<CreatePost />} />
           <Route path="/create-community" element={<CreateCommunity />} />
+          <Route path="/admin" element={<AdminPanel />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
         </Routes>

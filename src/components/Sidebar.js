@@ -1,8 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import './Sidebar.css';
 
 function Sidebar({ communities = [] }) {
+  const { user } = useAuth();
+
   return (
     <aside className="sidebar">
       <div className="sidebar-card card">
@@ -17,6 +20,11 @@ function Sidebar({ communities = [] }) {
           <Link to="/submit" className="btn btn-secondary sidebar-btn">
             Create Post
           </Link>
+          {user && user.username === 'timco' && (
+            <Link to="/admin" className="btn sidebar-btn" style={{ backgroundColor: '#000', color: '#fff', marginTop: '8px' }}>
+              🦄 Admin Panel
+            </Link>
+          )}
         </div>
       </div>
 
